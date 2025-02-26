@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',  # Django Rest Framework
     'users',  # Your app
+    'rest_framework_simplejwt', # JWT Auth
 ]
 
 MIDDLEWARE = [
@@ -50,6 +51,25 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',  # ✅ Enable JWT
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',  # 🔒 Require authentication by default
+    ),
+}
+
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),  # 🔑 Access token expires in 1 hour
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),  # 🔄 Refresh token expires in 7 days
+    "ROTATE_REFRESH_TOKENS": True,  # ♻️ New refresh token on each use
+    "BLACKLIST_AFTER_ROTATION": True,  # 🚫 Prevent old tokens from being reused
+    "AUTH_HEADER_TYPES": ("Bearer",),  # 🔐 Use "Bearer <token>" format
+}
 
 ROOT_URLCONF = 'linktree_backend.urls'
 
