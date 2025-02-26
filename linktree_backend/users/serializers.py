@@ -6,9 +6,10 @@ from django.conf import settings
 
 User = get_user_model()
 
+
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, validators=[validate_password])
-    referral_code = serializers.CharField(write_only=True, required=False)  # Accept referral code
+    referral_code = serializers.CharField(write_only=True, required=False)
 
     class Meta:
         model = User
@@ -16,13 +17,22 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         referral_code = validated_data.pop('referral_code', None)
-        referred_by = None
+        password = validated_data.pop('password')  # Extract password separately
 
+        # Create the user without referred_by (since it's not part of create_user)
+        user = User.objects.create_user(**validated_data)
+        user.set_password(password)  # Ensure password is hashed
+        user.save()
+
+        # Assign referred_by AFTER user creation
         if referral_code:
-            referred_by = User.objects.filter(referral_code=referral_code).first()  # Find referrer
+            referred_by = User.objects.filter(referral_code=referral_code).first()
+            if referred_by:
+                user.referred_by = referred_by
+                user.save()
 
-        user = User.objects.create_user(**validated_data, referred_by=referred_by)
         return user
+
 
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField()
