@@ -25,7 +25,9 @@ SECRET_KEY = 'django-insecure-f@7r_i*bd4(fbd8gx%rt7ic_2b+q)0#)_78ld2ch=1_8^v(^b4
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["0.0.0.0", "127.0.0.1", "localhost"]
+CELERY_BROKER_URL = "redis://127.0.0.1:6379/0"  # ✅ Use Redis as Celery broker
+
 
 AUTH_USER_MODEL = 'users.User' 
 
@@ -40,7 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',  # Django Rest Framework
     'users',  # Your app
-    'rest_framework_simplejwt', # JWT Auth
+    'rest_framework_simplejwt', # JWT Authclear
 ]
 
 MIDDLEWARE = [
@@ -65,12 +67,21 @@ REST_FRAMEWORK = {
 from datetime import timedelta
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),  # 🔑 Access token expires in 1 hour
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),  # 🔄 Refresh token expires in 7 days
-    "ROTATE_REFRESH_TOKENS": True,  # ♻️ New refresh token on each use
-    "BLACKLIST_AFTER_ROTATION": True,  # 🚫 Prevent old tokens from being reused
-    "AUTH_HEADER_TYPES": ("Bearer",),  # 🔐 Use "Bearer <token>" format
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "AUTH_COOKIE": "access_token",  # ✅ Store JWT in an HttpOnly cookie
+    "AUTH_COOKIE_HTTPONLY": True,   # ✅ Prevent JavaScript access (Protects against XSS)
+    "AUTH_COOKIE_SECURE": True,     # ✅ Use Secure flag (HTTPS only)
 }
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": "redis://127.0.0.1:6379/1",  # ✅ Redis cache database 1
+    }
+}
+
+
 
 ROOT_URLCONF = 'linktree_backend.urls'
 
@@ -144,3 +155,6 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"  # ✅ Emails show in the console
+DEFAULT_FROM_EMAIL = "noreply@example.com"

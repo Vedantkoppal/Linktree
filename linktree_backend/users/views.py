@@ -2,6 +2,8 @@ from django.shortcuts import render
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated,AllowAny
+from rest_framework.views import exception_handler
+
 
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate, get_user_model
@@ -10,16 +12,37 @@ from django.core.mail import send_mail
 from django.conf import settings
 from .serializers import RegisterSerializer, LoginSerializer, ForgotPasswordSerializer
 
+from django_ratelimit.decorators import ratelimit
+from django.utils.decorators import method_decorator
+from django.core.cache import cache
+
+from users.tasks import process_referral  # ✅ Import the Celery task
+
+
+
+def custom_exception_handler(exc, context):
+    response = exception_handler(exc, context)
+
+    if response is not None:
+        response.data['status_code'] = response.status_code  # ✅ Add status code to response
+
+    return response
+
 User = get_user_model()
 
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = [AllowAny]
 
+    @method_decorator(ratelimit(key="ip", rate="5/m", method="POST", block=True))
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+        
+        # ✅ Call Celery task only if referred_by exists
+        if user.referred_by:
+            process_referral.delay(user.id) 
 
         return Response({
             "message": "User registered successfully",
@@ -30,7 +53,10 @@ class RegisterView(generics.CreateAPIView):
 
 class LoginView(generics.GenericAPIView):
     serializer_class = LoginSerializer
+    permission_classes = [AllowAny]
 
+
+    @method_decorator(ratelimit(key="ip", rate="5/m", method="POST", block=True))
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -50,6 +76,7 @@ class LoginView(generics.GenericAPIView):
 
 class ForgotPasswordView(generics.GenericAPIView):
     serializer_class = ForgotPasswordSerializer
+    permission_classes = [AllowAny] 
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -84,13 +111,17 @@ class ReferralStatsView(generics.GenericAPIView):
 
     def get(self, request, *args, **kwargs):
         user = request.user
-        total_referrals = User.objects.filter(referred_by=user).count()
-        successful_referrals = User.objects.filter(referred_by=user, referrals__status="successful").count()
+        cache_key = f"referral_stats_{user.id}"  # ✅ Unique cache key for each user
+        data = cache.get(cache_key)
 
-        return Response({
-            "total_referrals": total_referrals,
-            "successful_referrals": successful_referrals
-        }, status=status.HTTP_200_OK)
+        if not data:  # If not cached, fetch from DB
+            total_referrals = User.objects.filter(referred_by=user).count()
+            successful_referrals = User.objects.filter(referred_by=user, referrals__status="successful").count()
+            data = {"total_referrals": total_referrals, "successful_referrals": successful_referrals}
+
+            cache.set(cache_key, data, timeout=600)  # ✅ Cache for 10 minutes
+
+        return Response(data, status=200)
 
 
 # Create your views here.
