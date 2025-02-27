@@ -34,7 +34,7 @@ class TestUserReferrals:
             "username": "ved",
             "email": "ved@example.com",
             "password": "password123",
-            "referral_code": self.referrer_code  # ✅ Corrected key
+            "referral_code": self.referrer_code  # ✅ Corrected key``
         }, format="json")
 
         self.client.post("/api/register/", {
