@@ -17,6 +17,7 @@ from django.utils.decorators import method_decorator
 from django.core.cache import cache
 
 from users.tasks import process_referral  # ✅ Import the Celery task
+from users.models import Referral
 
 
 
@@ -34,7 +35,7 @@ class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = [AllowAny]
 
-    @method_decorator(ratelimit(key="ip", rate="5/m", method="POST", block=True))
+    # @method_decorator(ratelimit(key="ip", rate="5/m", method="POST", block=True))
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -42,6 +43,7 @@ class RegisterView(generics.CreateAPIView):
         
         # ✅ Call Celery task only if referred_by exists
         if user.referred_by:
+            print('gone to celery')
             process_referral.delay(user.id) 
 
         return Response({
@@ -56,7 +58,7 @@ class LoginView(generics.GenericAPIView):
     permission_classes = [AllowAny]
 
 
-    @method_decorator(ratelimit(key="ip", rate="5/m", method="POST", block=True))
+    # @method_decorator(ratelimit(key="ip", rate="5/m", method="POST", block=True))
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -72,7 +74,7 @@ class LoginView(generics.GenericAPIView):
                 "access": str(refresh.access_token)
             }, status=status.HTTP_200_OK)
         else:
-            return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({"error": "Invalid credentials","detail":"No active account found with the given credentials"}, status=status.HTTP_401_UNAUTHORIZED)
 
 class ForgotPasswordView(generics.GenericAPIView):
     serializer_class = ForgotPasswordSerializer
@@ -111,15 +113,9 @@ class ReferralStatsView(generics.GenericAPIView):
 
     def get(self, request, *args, **kwargs):
         user = request.user
-        cache_key = f"referral_stats_{user.id}"  # ✅ Unique cache key for each user
-        data = cache.get(cache_key)
-
-        if not data:  # If not cached, fetch from DB
-            total_referrals = User.objects.filter(referred_by=user).count()
-            successful_referrals = User.objects.filter(referred_by=user, referrals__status="successful").count()
-            data = {"total_referrals": total_referrals, "successful_referrals": successful_referrals}
-
-            cache.set(cache_key, data, timeout=600)  # ✅ Cache for 10 minutes
+        successful_referrals = Referral.objects.filter(referrer=user, status="successful").count()
+        total_referrals = Referral.objects.filter(referrer=user).count()
+        data = {"total_referrals": total_referrals, "successful_referrals": successful_referrals}
 
         return Response(data, status=200)
 

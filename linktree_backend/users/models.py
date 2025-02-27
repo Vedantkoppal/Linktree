@@ -1,6 +1,7 @@
 import hashlib
+from django.core.exceptions import ValidationError
 from django.conf import settings
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser 
 from django.db import models
 
 class User(AbstractUser):
@@ -20,6 +21,11 @@ class User(AbstractUser):
         related_name="custom_user_permissions_set",  # ✅ Fix for clash with auth.User.user_permissions
         blank=True
     )
+
+    def clean(self):
+        """Prevent users from referring themselves."""
+        if self.referred_by and self.referred_by == self:
+            raise ValidationError("A user cannot refer themselves.")
 
     def save(self, *args, **kwargs):
         if not self.referral_code:

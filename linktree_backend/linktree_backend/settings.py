@@ -60,7 +60,7 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',  # ✅ Enable JWT
     ),
     'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.IsAuthenticated',  # 🔒 Require authentication by default
+        'rest_framework.permissions.AllowAny',  # 🔒 Require authentication by default
     ),
 }
 
