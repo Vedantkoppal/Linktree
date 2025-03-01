@@ -132,18 +132,8 @@ pytest
 
 ---
 
-## 📌 Future Improvements
-- [ ] Implement **reward system** for referrals.
-- [ ] Add **OAuth 2.0 authentication** (Google, Facebook, etc.).
-- [ ] Improve **caching strategy** for user data.
-- [ ] Enhance **rate limiting** for better security.
-
----
-
 ## 📄 License
 This project is licensed under the **MIT License**.
 
 ---
-
-### 🌟 **Star this repo if you found it useful!** ⭐
 
